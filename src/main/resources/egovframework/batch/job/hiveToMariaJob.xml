@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch-3.0.xsd">
+		
+	<import resource="abstract/eGovBase.xml" />
+
+	<job id="hiveToMariaJob" parent="eGovBaseJob" xmlns="http://www.springframework.org/schema/batch">
+		<step id="hiveToMariaStep" parent="eGovBaseStep">
+			<tasklet>
+				<chunk reader="hiveToMariaJob.hiveToMariaStep.jdbcItemReader"
+					processor="hiveToMariaJob.hiveToMariaStep.itemProcessor"
+					writer="hiveToMariaJob.hiveToMariaStep.ibatisItemWriter"
+					commit-interval="10000" />
+			</tasklet>
+		</step>
+	</job>
+
+	<bean id="hiveToMariaJob.hiveToMariaStep.jdbcItemReader" class="org.springframework.batch.item.database.JdbcCursorItemReader" scope="step">
+		<property name="dataSource" ref="hive.dataSource" />
+		<property name="sql" value="select emp_no, birth_date, first_name, last_name,gender,hire_date from employees" />
+		<property name="verifyCursorPosition" value="true" />
+		<property name="rowMapper">
+			<bean class="egovframework.example.bat.domain.trade.EmployeeRowMapper" />
+		</property>
+	</bean>
+	<bean id="hiveToMariaJob.hiveToMariaStep.ibatisItemWriter" class="egovframework.rte.bat.core.item.database.EgovJdbcBatchItemWriter">
+		<property name="assertUpdates" value="false" />
+		<property name="itemPreparedStatementSetter">
+			<bean class="egovframework.rte.bat.core.item.database.support.EgovMethodMapItemPreparedStatementSetter" />
+		</property>
+		 <property name="sql" value="INSERT INTO employees VALUES((SELECT MAX(EMP_NO)+1 FROM employees E),?,?,?,?,?)" />
+		<property name="params" value="birth_date,first_name,last_name,gender,hire_date" />
+		<property name="dataSource" ref="maria.dataSource" />
+	</bean>
+
+	<bean id="hiveToMariaJob.hiveToMariaStep.itemProcessor" class="egovframework.example.bat.domain.trade.EmployeesInsertProcessor" />
+</beans>
